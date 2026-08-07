@@ -1,0 +1,29 @@
+[Unit]
+Description=Weather station Inky Impression display renderer
+After=network.target
+
+[Service]
+Type=simple
+# Forces gpiozero onto the lgpio backend explicitly rather than relying on
+# its auto-detection -- without python3-lgpio installed, it silently falls
+# back to a deprecated /sys/class/gpio factory that fails outright on
+# current Raspberry Pi OS kernels. See docs/deployment.md.
+Environment=GPIOZERO_PIN_FACTORY=lgpio
+# lgpio's Python bindings create a notification pipe (.lgd-nfyN) in the
+# process's *current working directory* on import. systemd defaults
+# WorkingDirectory to / when unset, which the weather-station user can't
+# write to, so the pipe creation fails before the display ever gets to draw
+# anything. StateDirectory gives the user a directory it's guaranteed to
+# own; WorkingDirectory points lgpio (and the relative cache_path) at it.
+# See docs/deployment.md.
+StateDirectory=weather-station
+WorkingDirectory=/var/lib/weather-station
+ExecStart=/opt/weather-station/venv/bin/python3 /opt/weather-station/weather_station/main.py --config /etc/weather-station/config.json
+Restart=on-failure
+RestartSec=5
+User=weather-station
+SupplementaryGroups=gpio spi i2c
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

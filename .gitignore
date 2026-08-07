@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+
+# Local SQLite state (created by the monitor, not meant to be committed)
+*.db
+*.db-wal
+*.db-shm
+
+# Local rendered preview images (scripts/render_preview.py, main.py --mock-output)
+*.png
+
+# Virtualenvs, if you use one for local development
+.venv/
+venv/
