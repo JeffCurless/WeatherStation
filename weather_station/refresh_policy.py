@@ -16,9 +16,11 @@ structurally guaranteed by that loop shape -- RefreshPolicy doesn't need its
 own "refresh in progress" flag to enforce it.
 
 Unlike a device that also has to detect independent background state
-changes, this device's only two dirty triggers are a new successful weather
-fetch and a button-driven page/subpage change -- both call mark_dirty()
-directly, so there's no separate state-hash/diff step needed here.
+changes, this device's dirty triggers are a new successful weather fetch, a
+button-driven page/subpage change, and a weather-fetch ok/failing
+transition (so the header's offline icon appears/clears promptly) -- all
+call mark_dirty() directly, so there's no separate state-hash/diff step
+needed here.
 """
 
 import time

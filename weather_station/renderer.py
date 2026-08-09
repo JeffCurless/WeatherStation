@@ -17,6 +17,7 @@ from typing import Optional
 from PIL import Image, ImageDraw, ImageFont
 
 from . import palette
+from .icons import draw_wifi_icon
 from .inky_driver import DISPLAY_WIDTH, DISPLAY_HEIGHT
 
 log = logging.getLogger("weather_station.renderer")
@@ -74,6 +75,7 @@ class RenderContext:
     daily: Optional[list] = None
     hourly: Optional[list] = None
     weather_updated_at: Optional[int] = None
+    weather_fetch_ok: bool = True
     units: str = "fahrenheit"
 
 
@@ -116,7 +118,14 @@ def _draw_header(draw, ctx):
     updated_at = time.strftime("%H:%M:%S", time.localtime(ctx.now))
     meta = f"updated {updated_at}"
     w = draw.textlength(meta, font=font_meta)
-    draw.text((DISPLAY_WIDTH - MARGIN - w, 14), meta, font=font_meta, fill=palette.FOREGROUND)
+    meta_x = DISPLAY_WIDTH - MARGIN - w
+    draw.text((meta_x, 14), meta, font=font_meta, fill=palette.FOREGROUND)
+
+    if not ctx.weather_fetch_ok:
+        icon_size = 16
+        gap = 8
+        icon_box = (meta_x - gap - icon_size, 12, meta_x - gap, 12 + icon_size)
+        draw_wifi_icon(draw, icon_box, palette.RED)
 
     draw.line(
         [(MARGIN, HEADER_HEIGHT - 2), (DISPLAY_WIDTH - MARGIN, HEADER_HEIGHT - 2)],

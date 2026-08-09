@@ -26,7 +26,10 @@ DAILY_VARS = (
     "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,"
     "wind_speed_10m_max,wind_direction_10m_dominant,uv_index_max"
 )
-HOURLY_VARS = "temperature_2m,weather_code,precipitation_probability,wind_speed_10m,wind_direction_10m,uv_index"
+HOURLY_VARS = (
+    "temperature_2m,weather_code,precipitation_probability,wind_speed_10m,"
+    "wind_direction_10m,uv_index,relative_humidity_2m"
+)
 
 # Open-Meteo has no "imperial/metric" toggle for wind -- it's a standalone
 # unit param. Tied to temperature_unit here so a "fahrenheit" config reads
@@ -45,9 +48,13 @@ def fetch_forecast(latitude, longitude, units="fahrenheit", forecast_days=7, for
                      "weather_code": 2, "precip_probability": 0,
                      "wind_speed": 12.4, "wind_direction": 270,
                      "uv_index": 6.0}
+           No humidity here -- Open-Meteo's daily block has no relative
+           humidity aggregate, only hourly. Callers wanting "today's"
+           humidity should read hours[0]["humidity"] instead.
     hours: list of {"time": "2026-08-04T19:00", "temperature": 78.0,
                      "weather_code": 0, "precip_probability": 0,
-                     "wind_speed": 8.1, "wind_direction": 270, "uv_index": 0.0}
+                     "wind_speed": 8.1, "wind_direction": 270, "uv_index": 0.0,
+                     "humidity": 55}
            "time" is the raw ISO string from Open-Meteo, starting at the
            current local hour (not midnight) when forecast_hours + timezone
            =auto are both set, as requested here -- formatting for display
@@ -105,6 +112,7 @@ def fetch_forecast(latitude, longitude, units="fahrenheit", forecast_days=7, for
                 "wind_speed": hourly["wind_speed_10m"][i],
                 "wind_direction": hourly["wind_direction_10m"][i],
                 "uv_index": hourly["uv_index"][i],
+                "humidity": hourly["relative_humidity_2m"][i],
             })
     except (KeyError, IndexError) as exc:
         raise WeatherFetchError(f"unexpected response shape: {exc}") from exc

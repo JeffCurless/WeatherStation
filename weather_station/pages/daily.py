@@ -20,13 +20,14 @@ def render_body(draw, image, ctx, body_rect):
     height = y1 - y0
 
     today_h = int(height * 0.42)
-    _render_today(draw, days[0], (x0, y0, x1, y0 + today_h))
+    today_hour = ctx.hourly[0] if ctx.hourly else None
+    _render_today(draw, days[0], today_hour, (x0, y0, x1, y0 + today_h))
 
     forecast_rect = (x0, y0 + today_h + 10, x1, y1)
     _render_forecast_row(draw, days[1:], forecast_rect)
 
 
-def _render_today(draw, day, rect):
+def _render_today(draw, day, today_hour, rect):
     x0, y0, x1, y1 = rect
     icon_size = min(y1 - y0, 120)
     icon_box = (x0, y0, x0 + icon_size, y0 + icon_size)
@@ -40,12 +41,23 @@ def _render_today(draw, day, rect):
 
     draw.text((text_x, y0), "Today", font=font_label, fill=palette.BLACK)
 
+    date_label = _format_date(day["date"])
+    dw = draw.textlength(date_label, font=font_label)
+    draw.text((x1 - dw, y0), date_label, font=font_label, fill=palette.BLACK)
+
     hi = round(day["hi"])
     lo = round(day["lo"])
     draw.text((text_x, y0 + 26), f"{hi}° / {lo}°", font=font_big, fill=palette.BLACK)
 
     cond_label = CATEGORY_LABELS.get(category, category.title())
     parts = [cond_label]
+
+    # Humidity has no daily aggregate from Open-Meteo -- only hourly -- so
+    # "today's" value comes from the current/first hourly reading rather
+    # than the daily forecast block used for everything else here.
+    humidity = today_hour.get("humidity") if today_hour else None
+    if humidity is not None:
+        parts.append(f"{humidity}% humidity")
 
     precip = day.get("precip_probability")
     if precip is not None:
@@ -124,6 +136,14 @@ def _render_forecast_row(draw, days, rect):
 def _format_weekday(date_str):
     try:
         return datetime.date.fromisoformat(date_str).strftime("%a")
+    except ValueError:
+        return date_str
+
+
+def _format_date(date_str):
+    try:
+        d = datetime.date.fromisoformat(date_str)
+        return f"{d.month}/{d.day}"
     except ValueError:
         return date_str
 

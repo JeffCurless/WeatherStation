@@ -38,6 +38,7 @@ def build_context(config, page_state, weather_state):
         daily=weather_state["days"],
         hourly=weather_state["hours"],
         weather_updated_at=weather_state["updated_at"],
+        weather_fetch_ok=weather_state["fetch_ok"],
         units=config.units,
     )
 
@@ -54,7 +55,12 @@ async def render_and_show(driver, config, page_state, weather_state, loop):
 async def _refresh_weather(loop, config, weather_state):
     """Runs the blocking HTTPS fetch off the event loop and, on success,
     updates weather_state in place and mirrors it to the on-disk cache.
-    Returns True if weather_state changed."""
+    Returns True if the display should be marked dirty: always on a
+    successful fetch (new data, and clears the offline icon if it was
+    showing), or on a failed fetch only the moment it *becomes* the first
+    consecutive failure (so a still-offline device doesn't force a redraw
+    every single poll_interval_seconds -- the icon appeared once, it stays
+    until connectivity actually returns)."""
     log.debug(
         "weather fetch starting: lat=%s lon=%s units=%s forecast_days=%s forecast_hours=%s",
         config.latitude, config.longitude, config.units,
@@ -68,12 +74,15 @@ async def _refresh_weather(loop, config, weather_state):
         )
     except weather_client.WeatherFetchError:
         log.exception("weather fetch failed; keeping last-known forecast")
-        return False
+        was_ok = weather_state["fetch_ok"]
+        weather_state["fetch_ok"] = False
+        return was_ok
 
     now = int(time.time())
     weather_state["days"] = days
     weather_state["hours"] = hours
     weather_state["updated_at"] = now
+    weather_state["fetch_ok"] = True
     await loop.run_in_executor(None, weather_client.save_cache, config.cache_path, days, hours, now)
     log.info("weather updated: %d day(s), %d hour(s)", len(days), len(hours))
     return True
@@ -88,7 +97,7 @@ async def main_async(config_path, mock_output_path=None):
     )
     page_state = PageStateMachine(config.display.buttons)
 
-    weather_state = {"days": None, "hours": None, "updated_at": None}
+    weather_state = {"days": None, "hours": None, "updated_at": None, "fetch_ok": True}
     cached_days, cached_hours, cached_at = weather_client.load_cache(config.cache_path)
     weather_state["days"] = cached_days
     weather_state["hours"] = cached_hours

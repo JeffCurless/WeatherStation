@@ -1,9 +1,9 @@
 """Button B: hour-by-hour forecast as a table -- one row per hour, columns
-for weather, temperature, chance of rain, wind, and UV index. Row count is
-however many fit the body height at the requested 20pt font, not forced to
-match config.forecast_hours -- on this panel's body height that works out
-to the full 10 hours, but the row budget is computed rather than hardcoded
-so it degrades gracefully if either changes.
+for weather, temperature, humidity, chance of rain, wind, and UV index. Row
+count is however many fit the body height at the requested 20pt font, not
+forced to match config.forecast_hours -- on this panel's body height that
+works out to the full 10 hours, but the row budget is computed rather than
+hardcoded so it degrades gracefully if either changes.
 """
 
 import datetime
@@ -15,12 +15,13 @@ from ..wind import compass_direction
 
 # (key, header label, column weight, text alignment). Weights were sized
 # against measured textlength() for the widest real values in each column
-# (e.g. "Partly Cloudy", "12:00am", "23 km/h SW") at the 20pt bold font used
-# throughout, not chosen by eye.
+# (e.g. "Partly Cloudy", "12:00am", "23 km/h SW", "Humidity") at the 20pt
+# bold font used throughout, not chosen by eye.
 _COLUMNS = (
     ("time", "Time", 124, "left"),
     ("weather", "Weather", 210, "left"),
     ("temp", "Temp", 90, "center"),
+    ("humidity", "Humidity", 132, "center"),
     ("rain", "Rain", 92, "center"),
     ("wind", "Wind", 164, "center"),
     ("uv", "UV", 62, "center"),
@@ -83,6 +84,9 @@ def _row_values(hour, wind_unit):
     category = category_for(hour["weather_code"])
     weather_label = CATEGORY_LABELS.get(category, category.title())
 
+    humidity = hour.get("humidity")
+    humidity_label = "--" if humidity is None else f"{humidity}%"
+
     precip = hour.get("precip_probability")
     rain_label = "--" if precip is None else f"{precip}%"
 
@@ -101,6 +105,7 @@ def _row_values(hour, wind_unit):
         "time": (_format_hour_label(hour["time"]), palette.BLACK),
         "weather": (weather_label, palette.BLACK),
         "temp": (f'{round(hour["temperature"])}°', palette.BLACK),
+        "humidity": (humidity_label, palette.BLACK),
         "rain": (rain_label, palette.BLUE),
         "wind": (wind_label, palette.BLACK),
         "uv": (uv_label, palette.BLACK),

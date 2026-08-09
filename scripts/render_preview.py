@@ -35,6 +35,10 @@ def main():
         "--mock-weather", action="store_true",
         help="use a canned forecast fixture covering every icon category, no network call, no config file needed",
     )
+    parser.add_argument(
+        "--offline", action="store_true",
+        help="render as if the last weather fetch failed, to eyeball the header's red wifi icon",
+    )
     args = parser.parse_args()
 
     days = hours = updated_at = None
@@ -69,6 +73,7 @@ def main():
         daily=days,
         hourly=hours,
         weather_updated_at=updated_at,
+        weather_fetch_ok=not args.offline,
         units=units,
     )
     image = render_page(args.page, ctx)

@@ -58,29 +58,33 @@ def draw_icon(draw, box, category):
         sun_r = int(r * 0.7)
         sx, sy = cx - int(r * 0.3), cy - int(r * 0.3)
         draw.ellipse([sx - sun_r, sy - sun_r, sx + sun_r, sy + sun_r], fill=palette.YELLOW, outline=palette.BLACK)
-        _draw_cloud(draw, (cx - int(r * 0.9), cy - int(r * 0.1), x1, y1))
+        _draw_cloud_dithered(draw, (cx - int(r * 0.9), cy - int(r * 0.1), x1, y1))
     elif category == "cloudy":
         _draw_cloud_dithered(draw, box)
     elif category == "fog":
-        _draw_cloud(draw, (x0, y0, x1, cy))
+        _draw_cloud_dithered(draw, (x0, y0, x1, cy))
         step = max(4, h // 6)
         for ly in range(cy, y1, step):
             draw.line([(x0, ly), (x1, ly)], fill=palette.BLACK, width=2)
     elif category == "rain":
+        # Deliberately NOT dithered gray like the other cloud icons -- solid
+        # blue is what makes rain read as visually distinct at a glance (see
+        # module docstring); dithering it would blur that back into looking
+        # like a plain cloudy icon.
         _draw_cloud(draw, (x0, y0, x1, cy + h // 6), fill=palette.BLUE)
         drop_y0 = cy + h // 4
         step = max(5, w // 5)
         for dx in range(x0 + w // 6, x1, step):
             draw.line([(dx, drop_y0), (dx - 4, y1)], fill=palette.BLUE, width=4)
     elif category == "snow":
-        _draw_cloud(draw, (x0, y0, x1, cy + h // 6))
+        _draw_cloud_dithered(draw, (x0, y0, x1, cy + h // 6))
         flake_y = cy + h // 3
         step = max(8, w // 4)
         flake_size = max(4, w // 10)
         for dx in range(x0 + w // 6, x1, step):
             _draw_asterisk(draw, dx, flake_y, flake_size)
     elif category == "storm":
-        _draw_cloud(draw, (x0, y0, x1, cy))
+        _draw_cloud_dithered(draw, (x0, y0, x1, cy))
         bolt = [
             (cx, cy - h // 10),
             (cx - w // 8, cy + h // 4),
@@ -105,7 +109,7 @@ def _cloud_ellipses(box):
     )
 
 
-def _draw_cloud(draw, box, fill=palette.WHITE):
+def _draw_cloud(draw, box, fill):
     for ellipse_box in _cloud_ellipses(box):
         draw.ellipse(ellipse_box, fill=fill, outline=palette.BLACK)
 
@@ -113,8 +117,8 @@ def _draw_cloud(draw, box, fill=palette.WHITE):
 # Classic 4x4 Bayer ordered-dither matrix (values 0-15, exactly 8 of 16
 # cells below the midpoint -> exact 50/50 black/white density). Used
 # in-house instead of a whole-image dithering library since this only ever
-# dithers one hand-drawn shape (the "cloudy" icon's fill) with two colors,
-# not a continuous-tone photo across the full 6-color palette.
+# dithers hand-drawn cloud shapes with two colors, not a continuous-tone
+# photo across the full 6-color palette.
 _BAYER_4 = (
     (0, 8, 2, 10),
     (12, 4, 14, 6),
@@ -159,3 +163,20 @@ def _draw_asterisk(draw, cx, cy, size):
         dx = int(size * math.cos(rad))
         dy = int(size * math.sin(rad))
         draw.line([(cx - dx, cy - dy), (cx + dx, cy + dy)], fill=palette.BLUE, width=2)
+
+
+def draw_wifi_icon(draw, box, color):
+    """Classic 'signal bars' wifi glyph: a dot plus concentric quarter-arcs
+    fanning upward from it, all anchored to the bottom-center of box. Used
+    as a connectivity-lost indicator (in palette.RED) in the header -- the
+    color alone carries the "this is a problem" meaning, so there's no
+    separate slash/cross glyph."""
+    x0, y0, x1, y1 = box
+    w, h = x1 - x0, y1 - y0
+    cx = x0 + w // 2
+    base_y = y1
+    dot_r = max(2, w // 8)
+    draw.ellipse([cx - dot_r, base_y - dot_r, cx + dot_r, base_y + dot_r], fill=color)
+    for i in range(1, 4):
+        r = int(h * i / 3.4)
+        draw.arc([cx - r, base_y - r, cx + r, base_y + r], start=200, end=340, fill=color, width=2)

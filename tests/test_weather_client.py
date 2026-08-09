@@ -44,7 +44,7 @@ class TestFetchForecast(unittest.TestCase):
         first_hour = hours[0]
         self.assertEqual(
             set(first_hour),
-            {"time", "temperature", "weather_code", "precip_probability", "wind_speed", "wind_direction", "uv_index"},
+            {"time", "temperature", "weather_code", "precip_probability", "wind_speed", "wind_direction", "uv_index", "humidity"},
         )
         self.assertEqual(first_hour["time"], "2026-08-04T20:00")
 
