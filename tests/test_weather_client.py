@@ -38,15 +38,25 @@ class TestFetchForecast(unittest.TestCase):
         first_day = days[0]
         self.assertEqual(
             set(first_day),
-            {"date", "hi", "lo", "weather_code", "precip_probability", "wind_speed", "wind_direction", "uv_index"},
+            {
+                "date", "hi", "lo", "weather_code", "precip_probability", "wind_speed", "wind_direction",
+                "uv_index", "sunrise", "sunset",
+            },
         )
+        self.assertEqual(first_day["sunrise"], "2026-08-04T05:52")
+        self.assertEqual(first_day["sunset"], "2026-08-04T20:05")
 
         first_hour = hours[0]
         self.assertEqual(
             set(first_hour),
-            {"time", "temperature", "weather_code", "precip_probability", "wind_speed", "wind_direction", "uv_index", "humidity"},
+            {
+                "time", "temperature", "weather_code", "precip_probability", "wind_speed", "wind_direction",
+                "uv_index", "humidity", "is_day",
+            },
         )
         self.assertEqual(first_hour["time"], "2026-08-04T20:00")
+        self.assertIs(first_hour["is_day"], True)
+        self.assertIs(hours[1]["is_day"], False)
 
     def test_missing_daily_block_raises(self):
         raw = json.dumps({"hourly": {"time": [], "temperature_2m": [], "weather_code": [], "precipitation_probability": []}}).encode()

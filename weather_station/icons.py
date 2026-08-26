@@ -33,7 +33,9 @@ WMO_CODE_CATEGORY = {
 
 CATEGORY_LABELS = {
     "clear": "Clear",
+    "clear_night": "Clear",
     "partly_cloudy": "Partly Cloudy",
+    "partly_cloudy_night": "Partly Cloudy",
     "cloudy": "Cloudy",
     "fog": "Fog",
     "rain": "Rain",
@@ -41,9 +43,17 @@ CATEGORY_LABELS = {
     "storm": "Storm",
 }
 
+# Categories whose daytime icon is sun-based, and their night equivalent --
+# the other categories (cloudy/fog/rain/snow/storm) look the same regardless
+# of time of day, so only these two need a night variant.
+_NIGHT_VARIANT = {"clear": "clear_night", "partly_cloudy": "partly_cloudy_night"}
 
-def category_for(weather_code):
-    return WMO_CODE_CATEGORY.get(weather_code, "cloudy")
+
+def category_for(weather_code, is_day=True):
+    category = WMO_CODE_CATEGORY.get(weather_code, "cloudy")
+    if not is_day:
+        return _NIGHT_VARIANT.get(category, category)
+    return category
 
 
 def draw_icon(draw, box, category):
@@ -54,10 +64,17 @@ def draw_icon(draw, box, category):
 
     if category == "clear":
         draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=palette.YELLOW, outline=palette.BLACK)
+    elif category == "clear_night":
+        _draw_moon(draw, cx, cy, r)
     elif category == "partly_cloudy":
         sun_r = int(r * 0.7)
         sx, sy = cx - int(r * 0.3), cy - int(r * 0.3)
         draw.ellipse([sx - sun_r, sy - sun_r, sx + sun_r, sy + sun_r], fill=palette.YELLOW, outline=palette.BLACK)
+        _draw_cloud_dithered(draw, (cx - int(r * 0.9), cy - int(r * 0.1), x1, y1))
+    elif category == "partly_cloudy_night":
+        moon_r = int(r * 0.7)
+        mx, my = cx - int(r * 0.3), cy - int(r * 0.3)
+        _draw_moon(draw, mx, my, moon_r)
         _draw_cloud_dithered(draw, (cx - int(r * 0.9), cy - int(r * 0.1), x1, y1))
     elif category == "cloudy":
         _draw_cloud_dithered(draw, box)
@@ -96,6 +113,19 @@ def draw_icon(draw, box, category):
         draw.polygon(bolt, fill=palette.YELLOW, outline=palette.BLACK)
     else:
         draw.rectangle(box, outline=palette.BLACK, width=2)
+
+
+def _draw_moon(draw, cx, cy, r):
+    """Crescent moon: a solid black disc with a same-size disc cut out of it
+    (filled palette.WHITE, no outline, offset up-right) -- filling the cut
+    circle with the page background rather than leaving it unfilled means
+    the crescent reads as one solid high-contrast shape, not a faint
+    single-pixel outline sliver, matching the weight of the solid-fill sun
+    used for the daytime "clear" icon."""
+    draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=palette.BLACK, outline=palette.BLACK)
+    cut_r = int(r * 0.82)
+    ox, oy = cx + int(r * 0.5), cy - int(r * 0.35)
+    draw.ellipse([ox - cut_r, oy - cut_r, ox + cut_r, oy + cut_r], fill=palette.WHITE)
 
 
 def _cloud_ellipses(box):

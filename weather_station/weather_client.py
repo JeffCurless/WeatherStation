@@ -24,11 +24,11 @@ REQUEST_TIMEOUT_SECONDS = 10
 
 DAILY_VARS = (
     "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,"
-    "wind_speed_10m_max,wind_direction_10m_dominant,uv_index_max"
+    "wind_speed_10m_max,wind_direction_10m_dominant,uv_index_max,sunrise,sunset"
 )
 HOURLY_VARS = (
     "temperature_2m,weather_code,precipitation_probability,wind_speed_10m,"
-    "wind_direction_10m,uv_index,relative_humidity_2m"
+    "wind_direction_10m,uv_index,relative_humidity_2m,is_day"
 )
 
 # Open-Meteo has no "imperial/metric" toggle for wind -- it's a standalone
@@ -47,18 +47,23 @@ def fetch_forecast(latitude, longitude, units="fahrenheit", forecast_days=7, for
     days:  list of {"date": "2026-08-04", "hi": 82.8, "lo": 60.1,
                      "weather_code": 2, "precip_probability": 0,
                      "wind_speed": 12.4, "wind_direction": 270,
-                     "uv_index": 6.0}
+                     "uv_index": 6.0, "sunrise": "2026-08-04T05:52",
+                     "sunset": "2026-08-04T20:05"}
            No humidity here -- Open-Meteo's daily block has no relative
            humidity aggregate, only hourly. Callers wanting "today's"
-           humidity should read hours[0]["humidity"] instead.
+           humidity should read hours[0]["humidity"] instead. sunrise/sunset
+           are raw ISO strings (local, via timezone=auto below) -- formatting
+           for display is the page's job, not this client's.
     hours: list of {"time": "2026-08-04T19:00", "temperature": 78.0,
                      "weather_code": 0, "precip_probability": 0,
                      "wind_speed": 8.1, "wind_direction": 270, "uv_index": 0.0,
-                     "humidity": 55}
+                     "humidity": 55, "is_day": True}
            "time" is the raw ISO string from Open-Meteo, starting at the
            current local hour (not midnight) when forecast_hours + timezone
            =auto are both set, as requested here -- formatting for display
-           is the page's job, not this client's.
+           is the page's job, not this client's. "is_day" is Open-Meteo's
+           own day/night flag (accounts for actual sunrise/sunset, not just
+           a fixed hour range) -- used to pick night-appropriate icons.
 
     Raises WeatherFetchError on any network/parse failure in EITHER block --
     treated as one atomic fetch so callers don't have to reason about
@@ -99,6 +104,8 @@ def fetch_forecast(latitude, longitude, units="fahrenheit", forecast_days=7, for
                 "wind_speed": daily["wind_speed_10m_max"][i],
                 "wind_direction": daily["wind_direction_10m_dominant"][i],
                 "uv_index": daily["uv_index_max"][i],
+                "sunrise": daily["sunrise"][i],
+                "sunset": daily["sunset"][i],
             })
 
         hourly = data["hourly"]
@@ -113,6 +120,7 @@ def fetch_forecast(latitude, longitude, units="fahrenheit", forecast_days=7, for
                 "wind_direction": hourly["wind_direction_10m"][i],
                 "uv_index": hourly["uv_index"][i],
                 "humidity": hourly["relative_humidity_2m"][i],
+                "is_day": bool(hourly["is_day"][i]),
             })
     except (KeyError, IndexError) as exc:
         raise WeatherFetchError(f"unexpected response shape: {exc}") from exc
