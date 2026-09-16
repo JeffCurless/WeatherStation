@@ -4,12 +4,14 @@ A standalone weather display for a Raspberry Pi (Zero W or Pi 4) driving a
 [Pimoroni Inky Impression 7.3"](https://shop.pimoroni.com/products/inky-impression-7-3)
 e-ink panel (800x480, 6-color Spectra), with 4 physical buttons.
 
-- **Button A** (default): 7-day forecast, with extra detail for today
-  (including sunrise/sunset times); each day's icon swaps to a moon for
-  clear/partly-cloudy conditions after sunset.
-- **Button B**: hour-by-hour forecast for the next 10 hours, including the
-  current hour.
-- **Buttons C/D**: reserved, unused for now.
+- **Button A** (default): 7-day forecast for the primary location, with
+  extra detail for today (including sunrise/sunset times); each day's icon
+  swaps to a moon for clear/partly-cloudy conditions after sunset.
+- **Button B**: same 7-day forecast, for a secondary location (see
+  `secondary_latitude`/`secondary_longitude` in `config/README.md`).
+- **Button C**: reserved, unused for now.
+- **Button D**: hour-by-hour forecast for the next 10 hours, including the
+  current hour, for whichever location (A or B) was checked most recently.
 
 Weather comes from [Open-Meteo](https://open-meteo.com/) -- free, no API
 key, no signup, non-commercial use up to 10,000 requests/day.

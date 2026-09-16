@@ -1,9 +1,11 @@
-"""Button B: hour-by-hour forecast as a table -- one row per hour, columns
+"""Button D: hour-by-hour forecast as a table -- one row per hour, columns
 for weather, temperature, humidity, chance of rain, wind, and UV index. Row
 count is however many fit the body height at the requested 20pt font, not
 forced to match config.forecast_hours -- on this panel's body height that
 works out to the full 10 hours, but the row budget is computed rather than
-hardcoded so it degrades gracefully if either changes.
+hardcoded so it degrades gracefully if either changes. Data is for whichever
+location (primary or secondary) was checked most recently via A or B -- see
+PageStateMachine.location in buttons.py.
 """
 
 import datetime

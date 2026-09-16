@@ -49,7 +49,13 @@ class TestLoadConfig(unittest.TestCase):
         self.assertEqual(config.poll_interval_seconds, 1800)
         self.assertEqual(config.cache_path, "weather_cache.json")
         self.assertEqual(config.display.refresh_min_interval_seconds, 90)
-        self.assertEqual(config.display.buttons, {"A": "daily", "B": "hourly"})
+        self.assertEqual(config.display.buttons, {"A": "daily", "B": "daily_secondary", "D": "hourly"})
+        self.assertIsNone(config.secondary_latitude)
+        self.assertIsNone(config.secondary_longitude)
+        self.assertEqual(config.secondary_cache_path, "weather_cache_secondary.json")
+        self.assertEqual(config.primary_label, "Home")
+        self.assertEqual(config.secondary_label, "Secondary")
+        self.assertFalse(config.has_secondary_location)
 
     def test_missing_latitude_raises(self):
         self._write({"longitude": -71.7105})
@@ -77,6 +83,30 @@ class TestLoadConfig(unittest.TestCase):
 
     def test_forecast_days_out_of_range_raises(self):
         self._write({"latitude": 42.8285, "longitude": -71.7105, "forecast_days": 17})
+        with self.assertRaises(ConfigError):
+            load_config(self.path)
+
+    def test_secondary_location_round_trips(self):
+        self._write({
+            "latitude": 42.8285,
+            "longitude": -71.7105,
+            "secondary_latitude": 54.5840,
+            "secondary_longitude": -5.9346,
+            "secondary_label": "Queen's University Belfast",
+        })
+        config = load_config(self.path)
+        self.assertEqual(config.secondary_latitude, 54.5840)
+        self.assertEqual(config.secondary_longitude, -5.9346)
+        self.assertEqual(config.secondary_label, "Queen's University Belfast")
+        self.assertTrue(config.has_secondary_location)
+
+    def test_secondary_latitude_without_longitude_raises(self):
+        self._write({"latitude": 42.8285, "longitude": -71.7105, "secondary_latitude": 54.5840})
+        with self.assertRaises(ConfigError):
+            load_config(self.path)
+
+    def test_secondary_longitude_without_latitude_raises(self):
+        self._write({"latitude": 42.8285, "longitude": -71.7105, "secondary_longitude": -5.9346})
         with self.assertRaises(ConfigError):
             load_config(self.path)
 

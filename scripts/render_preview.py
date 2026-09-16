@@ -21,8 +21,8 @@ from weather_station import fixtures, weather_client  # noqa: E402
 from weather_station.config import load_config  # noqa: E402
 from weather_station.renderer import RenderContext, render_page  # noqa: E402
 
-PAGES = ("daily", "hourly")
-DEFAULT_BUTTONS = {"A": "daily", "B": "hourly"}
+PAGES = ("daily", "daily_secondary", "hourly")
+DEFAULT_BUTTONS = {"A": "daily", "B": "daily_secondary", "D": "hourly"}
 
 
 def main():
@@ -44,6 +44,7 @@ def main():
     days = hours = updated_at = None
     button_map = DEFAULT_BUTTONS
     units = "fahrenheit"
+    location_label = ""
 
     if args.mock_weather:
         days, hours = fixtures.MOCK_DAILY, fixtures.MOCK_HOURLY
@@ -56,15 +57,25 @@ def main():
         config = load_config(args.config)
         button_map = config.display.buttons
         units = config.units
+
+        use_secondary = args.page == "daily_secondary"
+        if use_secondary and not config.has_secondary_location:
+            print("config has no secondary_latitude/secondary_longitude set", file=sys.stderr)
+            raise SystemExit(1)
+        latitude = config.secondary_latitude if use_secondary else config.latitude
+        longitude = config.secondary_longitude if use_secondary else config.longitude
+        cache_path = config.secondary_cache_path if use_secondary else config.cache_path
+        location_label = config.secondary_label if use_secondary else config.primary_label
+
         try:
             days, hours = weather_client.fetch_forecast(
-                config.latitude, config.longitude,
+                latitude, longitude,
                 config.units, config.forecast_days, config.forecast_hours,
             )
             updated_at = int(time.time())
         except weather_client.WeatherFetchError as exc:
             print(f"live weather fetch failed ({exc}), falling back to cache", file=sys.stderr)
-            days, hours, updated_at = weather_client.load_cache(config.cache_path)
+            days, hours, updated_at = weather_client.load_cache(cache_path)
 
     ctx = RenderContext(
         page_name=args.page,
@@ -75,6 +86,7 @@ def main():
         weather_updated_at=updated_at,
         weather_fetch_ok=not args.offline,
         units=units,
+        location_label=location_label,
     )
     image = render_page(args.page, ctx)
     image.save(args.output)

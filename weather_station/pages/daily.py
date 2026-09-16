@@ -1,5 +1,7 @@
-"""Button A (default page): 7-day forecast from Open-Meteo, with extra
-detail for today.
+"""Buttons A and B ("daily" / "daily_secondary" pages): 7-day forecast from
+Open-Meteo, with extra detail for today. Same layout for both buttons --
+the only difference is which location's data the caller puts in
+ctx.daily/ctx.hourly.
 """
 
 import datetime
