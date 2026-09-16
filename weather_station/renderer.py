@@ -26,7 +26,11 @@ HEADER_HEIGHT = 44
 FOOTER_HEIGHT = 26
 MARGIN = 10
 
-PAGE_TITLES = {"daily": "7-Day Forecast", "hourly": "Hourly Forecast"}
+PAGE_TITLES = {
+    "daily": "7-Day Forecast",
+    "daily_secondary": "7-Day Forecast",
+    "hourly": "Hourly Forecast",
+}
 
 _FONT_REGULAR_CANDIDATES = (
     "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
@@ -77,6 +81,9 @@ class RenderContext:
     weather_updated_at: Optional[int] = None
     weather_fetch_ok: bool = True
     units: str = "fahrenheit"
+    # Which location the daily/hourly data above belongs to, e.g. "Belfast"
+    # -- empty for the default location, which needs no disambiguation.
+    location_label: str = ""
 
 
 def format_ago(seconds):
@@ -110,6 +117,8 @@ def render_unavailable_body(draw, ctx, body_rect, what="forecast"):
 
 def _draw_header(draw, ctx):
     title = PAGE_TITLES.get(ctx.page_name, ctx.page_name.title())
+    if ctx.location_label:
+        title = f"{title} — {ctx.location_label}"
     font_title = load_font(22, bold=True)
     font_meta = load_font(14)
 
@@ -139,7 +148,7 @@ def _draw_footer(draw, ctx):
     draw.line([(MARGIN, y), (DISPLAY_WIDTH - MARGIN, y)], fill=palette.GRID_LINE, width=1)
 
     buttons_text = "  ".join(
-        f"{btn}:{page.title()}" for btn, page in sorted(ctx.button_page_map.items())
+        f"{btn}:{page.replace('_', ' ').title()}" for btn, page in sorted(ctx.button_page_map.items())
     )
     draw.text((MARGIN, y + 5), buttons_text, font=font, fill=palette.FOREGROUND)
 
@@ -149,6 +158,7 @@ def render_page(page_name, ctx):
 
     builders = {
         "daily": daily.render_body,
+        "daily_secondary": daily.render_body,
         "hourly": hourly.render_body,
     }
 

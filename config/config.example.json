@@ -1,13 +1,17 @@
 {
   "latitude": 42.8285,
   "longitude": -71.7105,
+  "secondary_latitude": 54.5840,
+  "secondary_longitude": -5.9346,
+  "secondary_label": "Queen's University Belfast",
   "units": "fahrenheit",
   "forecast_days": 7,
   "forecast_hours": 10,
   "poll_interval_seconds": 1800,
   "cache_path": "weather_cache.json",
+  "secondary_cache_path": "weather_cache_secondary.json",
   "display": {
     "refresh_min_interval_seconds": 90,
-    "buttons": {"A": "daily", "B": "hourly"}
+    "buttons": {"A": "daily", "B": "daily_secondary", "D": "hourly"}
   }
 }

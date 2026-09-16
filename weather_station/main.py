@@ -31,15 +31,18 @@ log = logging.getLogger("weather_station.main")
 
 
 def build_context(config, page_state, weather_state):
+    location = weather_state[page_state.location]
+    label = config.secondary_label if page_state.location == "secondary" else config.primary_label
     return RenderContext(
         page_name=page_state.current_page,
         subpage=page_state.subpage,
         button_page_map=config.display.buttons,
-        daily=weather_state["days"],
-        hourly=weather_state["hours"],
+        daily=location["days"],
+        hourly=location["hours"],
         weather_updated_at=weather_state["updated_at"],
         weather_fetch_ok=weather_state["fetch_ok"],
         units=config.units,
+        location_label=label,
     )
 
 
@@ -52,26 +55,41 @@ async def render_and_show(driver, config, page_state, weather_state, loop):
     return ctx
 
 
-async def _refresh_weather(loop, config, weather_state):
-    """Runs the blocking HTTPS fetch off the event loop and, on success,
-    updates weather_state in place and mirrors it to the on-disk cache.
-    Returns True if the display should be marked dirty: always on a
-    successful fetch (new data, and clears the offline icon if it was
-    showing), or on a failed fetch only the moment it *becomes* the first
-    consecutive failure (so a still-offline device doesn't force a redraw
-    every single poll_interval_seconds -- the icon appeared once, it stays
-    until connectivity actually returns)."""
+async def _fetch_one_location(loop, config, latitude, longitude):
     log.debug(
         "weather fetch starting: lat=%s lon=%s units=%s forecast_days=%s forecast_hours=%s",
-        config.latitude, config.longitude, config.units,
+        latitude, longitude, config.units,
         config.forecast_days, config.forecast_hours,
     )
+    return await loop.run_in_executor(
+        None, weather_client.fetch_forecast,
+        latitude, longitude,
+        config.units, config.forecast_days, config.forecast_hours,
+    )
+
+
+async def _refresh_weather(loop, config, weather_state):
+    """Runs the blocking HTTPS fetch(es) off the event loop and, on success,
+    updates weather_state in place and mirrors it to the on-disk cache(s).
+    Fetches the secondary location too when configured, treated as one
+    atomic fetch alongside the primary (so callers don't have to reason
+    about a display with only one of the two locations fresh -- both fall
+    back to cache together on any failure). Returns True if the display
+    should be marked dirty: always on a successful fetch (new data, and
+    clears the offline icon if it was showing), or on a failed fetch only
+    the moment it *becomes* the first consecutive failure (so a
+    still-offline device doesn't force a redraw every single
+    poll_interval_seconds -- the icon appeared once, it stays until
+    connectivity actually returns)."""
     try:
-        days, hours = await loop.run_in_executor(
-            None, weather_client.fetch_forecast,
-            config.latitude, config.longitude,
-            config.units, config.forecast_days, config.forecast_hours,
+        primary_days, primary_hours = await _fetch_one_location(
+            loop, config, config.latitude, config.longitude
         )
+        secondary_days = secondary_hours = None
+        if config.has_secondary_location:
+            secondary_days, secondary_hours = await _fetch_one_location(
+                loop, config, config.secondary_latitude, config.secondary_longitude
+            )
     except weather_client.WeatherFetchError:
         log.exception("weather fetch failed; keeping last-known forecast")
         was_ok = weather_state["fetch_ok"]
@@ -79,12 +97,24 @@ async def _refresh_weather(loop, config, weather_state):
         return was_ok
 
     now = int(time.time())
-    weather_state["days"] = days
-    weather_state["hours"] = hours
+    weather_state["primary"] = {"days": primary_days, "hours": primary_hours}
+    await loop.run_in_executor(
+        None, weather_client.save_cache, config.cache_path, primary_days, primary_hours, now
+    )
+    log.info("primary weather updated: %d day(s), %d hour(s)", len(primary_days), len(primary_hours))
+
+    if config.has_secondary_location:
+        weather_state["secondary"] = {"days": secondary_days, "hours": secondary_hours}
+        await loop.run_in_executor(
+            None, weather_client.save_cache, config.secondary_cache_path,
+            secondary_days, secondary_hours, now,
+        )
+        log.info(
+            "secondary weather updated: %d day(s), %d hour(s)", len(secondary_days), len(secondary_hours)
+        )
+
     weather_state["updated_at"] = now
     weather_state["fetch_ok"] = True
-    await loop.run_in_executor(None, weather_client.save_cache, config.cache_path, days, hours, now)
-    log.info("weather updated: %d day(s), %d hour(s)", len(days), len(hours))
     return True
 
 
@@ -97,11 +127,20 @@ async def main_async(config_path, mock_output_path=None):
     )
     page_state = PageStateMachine(config.display.buttons)
 
-    weather_state = {"days": None, "hours": None, "updated_at": None, "fetch_ok": True}
+    weather_state = {
+        "primary": {"days": None, "hours": None},
+        "secondary": {"days": None, "hours": None},
+        "updated_at": None,
+        "fetch_ok": True,
+    }
     cached_days, cached_hours, cached_at = weather_client.load_cache(config.cache_path)
-    weather_state["days"] = cached_days
-    weather_state["hours"] = cached_hours
+    weather_state["primary"] = {"days": cached_days, "hours": cached_hours}
     weather_state["updated_at"] = cached_at
+    if config.has_secondary_location:
+        sec_days, sec_hours, sec_at = weather_client.load_cache(config.secondary_cache_path)
+        weather_state["secondary"] = {"days": sec_days, "hours": sec_hours}
+        if sec_at is not None:
+            weather_state["updated_at"] = max(cached_at or 0, sec_at)
 
     loop = asyncio.get_running_loop()
     button_queue = asyncio.Queue()
@@ -122,9 +161,10 @@ async def main_async(config_path, mock_output_path=None):
                 pass  # e.g. platforms without asyncio signal support
 
     log.info(
-        "weather-station starting: cache=%s mock=%s lat=%s lon=%s "
+        "weather-station starting: cache=%s mock=%s lat=%s lon=%s secondary_lat=%s secondary_lon=%s "
         "poll_interval_seconds=%s cached_days=%s cached_hours=%s cached_at=%s",
         config.cache_path, mock_output_path is not None, config.latitude, config.longitude,
+        config.secondary_latitude, config.secondary_longitude,
         config.poll_interval_seconds,
         len(cached_days) if cached_days else 0,
         len(cached_hours) if cached_hours else 0,

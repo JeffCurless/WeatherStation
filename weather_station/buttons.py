@@ -8,9 +8,11 @@ BCM pin mapping for the Inky Impression's four rear buttons (confirmed
 against Pimoroni's own example):
     A = GPIO5, B = GPIO6, C = GPIO16, D = GPIO24
 
-Only A and B are mapped to pages for this device (7-day / hourly forecast);
-C and D are wired but intentionally unmapped in config, so pressing them is
-a harmless no-op (see PageStateMachine.handle_event below).
+A shows the 7-day forecast for the default (primary) location, B shows it
+for a secondary location, and D shows the next-10-hours table for whichever
+of those two locations was checked most recently via A or B. C is wired but
+intentionally unmapped in config, so pressing it is a harmless no-op (see
+PageStateMachine.handle_event below) -- reserved for a future feature.
 """
 
 import logging
@@ -20,6 +22,12 @@ from dataclasses import dataclass
 log = logging.getLogger("weather_station.buttons")
 
 BUTTON_PINS = {"A": 5, "B": 6, "C": 16, "D": 24}
+
+# Which location a given page's data comes from. A page not listed here (e.g.
+# "hourly") doesn't have a location of its own -- it inherits whatever
+# location was last selected by pressing a page that *is* listed, so button D
+# always shows the 10-hour table for "the last location checked" via A/B.
+DEFAULT_LOCATION_BY_PAGE = {"daily": "primary", "daily_secondary": "secondary"}
 
 
 @dataclass
@@ -37,12 +45,22 @@ class PageStateMachine:
     to subpage 0. This class doesn't know how many subpages a page actually
     has -- callers (the page renderer) compute `subpage % total_subpages`
     themselves.
+
+    Also tracks `location` -- which configured location ("primary" or
+    "secondary") the current page's data should come from. Landing on a page
+    listed in `location_by_page` (the daily pages, one per location) updates
+    it; landing on any other page (e.g. "hourly") leaves it as-is, so that
+    page always reflects whichever location was checked most recently.
     """
 
-    def __init__(self, button_page_map, default_page="daily"):
+    def __init__(self, button_page_map, default_page="daily", location_by_page=None, default_location="primary"):
         self.button_page_map = dict(button_page_map)
         self.current_page = default_page
         self.subpage = 0
+        self.location_by_page = dict(
+            DEFAULT_LOCATION_BY_PAGE if location_by_page is None else location_by_page
+        )
+        self.location = default_location
 
     def handle_event(self, event: ButtonEvent):
         page = self.button_page_map.get(event.button)
@@ -54,8 +72,11 @@ class PageStateMachine:
         else:
             self.current_page = page
             self.subpage = 0
+        if page in self.location_by_page:
+            self.location = self.location_by_page[page]
         log.info(
-            "button %s pressed -> page=%s subpage=%s", event.button, self.current_page, self.subpage,
+            "button %s pressed -> page=%s subpage=%s location=%s",
+            event.button, self.current_page, self.subpage, self.location,
         )
         return True
 

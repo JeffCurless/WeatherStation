@@ -13,15 +13,15 @@ a Pimoroni Inky Impression 7.3" panel attached.
 
   | Button | BCM GPIO | Mapped to |
   |---|---|---|
-  | A | 5 | daily forecast (default) |
-  | B | 6 | hourly forecast |
-  | C | 16 | unused |
-  | D | 24 | unused |
+  | A | 5 | daily forecast, primary location (default) |
+  | B | 6 | daily forecast, secondary location |
+  | C | 16 | unused (reserved) |
+  | D | 24 | hourly forecast, last location checked via A/B |
 
   `weather_station/buttons.py` hardcodes the pin mapping (`BUTTON_PINS`); it's
   a physical fact about the board, not something `config.json` needs to
   configure. `config.json`'s `display.buttons` section maps letters to page
-  names, which is configurable -- C/D are simply omitted there for now.
+  names, which is configurable -- `C` is simply omitted there for now.
 - Enable SPI on the Pi (`sudo raspi-config` -> Interface Options -> SPI)
   before the `inky` library will find the panel.
 - **Required**: the Inky Impression's driver (for this exact 7.3" Spectra 6
